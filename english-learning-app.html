@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英語学習アプリ - 和訳→英文読み上げ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .setup-section, .control-section {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .status-box {
+            background: #f3f4f6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .current-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .progress {
+            font-size: 14px;
+            color: #667eea;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎧 英語学習アプリ</h1>
+
+        <div id="setupSection" class="setup-section">
+            <div id="fileUploadSection" class="setup-section" style="display: none;">
+                <label for="csvFile">CSVファイルを選択:</label>
+                <input type="file" id="csvFile" accept=".csv" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px; cursor: pointer;">
+                <div class="help-text">
+                    ※ スプレッドシートを「ファイル」→「ダウンロード」→「カンマ区切り形式（.csv）」で保存してください
+                </div>
+                <button class="btn-primary" onclick="loadData()">データを読み込む</button>
+            </div>
+
+            <div id="autoLoadSection" class="setup-section" style="display: none;">
+                <div class="help-text" style="background: #e8f5e9; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                    ✅ Google Apps Script設定済み<br>
+                    ページを開くと自動的に最新データを読み込みます
+                </div>
+                <button class="btn-primary" onclick="loadDataFromAppsScript()">最新データを再読み込み</button>
+            </div>
+
+            <div class="settings-grid">
+                <div>
+                    <label for="waitTime">待機時間（秒）:</label>
+                    <input type="number" id="waitTime" value="5" min="1" max="30">
+                </div>
+                <div>
+                    <label for="repeatCount">繰り返し回数:</label>
+                    <input type="number" id="repeatCount" value="1" min="1" max="10">
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div style="grid-column: 1 / -1;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="shuffleMode" style="width: auto; margin-right: 8px;">
+                        <span>シャッフルモード（ランダム順で再生）</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div>
+                    <label for="jpColumn">和訳の列:</label>
+                    <input type="text" id="jpColumn" value="C" maxlength="2">
+                </div>
+                <div>
+                    <label for="enColumn">英文の列:</label>
+                    <input type="text" id="enColumn" value="B" maxlength="2">
+                </div>
+            </div>
+
+        </div>
+
+        <div id="controlSection" class="control-section hidden">
+            <div class="status-box">
+                <div class="current-text" id="currentText">準備完了</div>
+                <div class="progress" id="progress">0 / 0</div>
+            </div>
+
+            <button class="btn-primary" id="startBtn" onclick="startLearning()">学習を開始</button>
+            <button class="btn-primary hidden" id="pauseBtn" onclick="pauseLearning()">一時停止</button>
+            <button class="btn-primary hidden" id="resumeBtn" onclick="resumeLearning()">再開</button>
+            <button class="btn-danger hidden" id="stopBtn" onclick="stopLearning()">停止</button>
+            <button class="btn-primary" onclick="backToSetup()">設定に戻る</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // 【重要】ここにGoogle Apps ScriptのURLを設定してください
+        // ========================================
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby1nEfEygjVIx0WXTjyPeL_As5aHsua9osVCbvvhuFcFHkWlZD33kWIjLuSt8AP8FJL/exec';  // ← デプロイしたURLをここに貼り付け
+        // 例: 'https://script.google.com/macros/s/AKfycby.../exec'
+
+        let learningData = [];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let speechQueue = [];
+        let currentRepeat = 0;
+
+        // 音声合成の初期化
+        if (!('speechSynthesis' in window)) {
+            alert('お使いのブラウザは音声読み上げに対応していません。Chrome、Safari、Edgeなどをお使いください。');
+        }
+
+        // ページ読み込み時にGoogle Apps Scriptから自動読み込み
+        window.addEventListener('DOMContentLoaded', () => {
+            if (APPS_SCRIPT_URL) {
+                // Apps Script URLが設定されている場合、自動読み込み
+                document.getElementById('autoLoadSection').style.display = 'block';
+                loadDataFromAppsScript();
+            } else {
+                // URLが未設定の場合、手動ファイル選択モードを表示
+                document.getElementById('fileUploadSection').style.display = 'block';
+            }
+        });
+
+        // CSVデータを処理する共通関数
+        function processCSVData(csvText, jpCol, enCol) {
+            try {
+                const rows = parseCSV(csvText);
+
+                // 列インデックスを取得（A=0, B=1, ...）
+                const jpIndex = jpCol.charCodeAt(0) - 65;
+                const enIndex = enCol.charCodeAt(0) - 65;
+
+                // 1行目（ヘッダー）を除外し、データ行のみを処理
+                learningData = rows
+                    .slice(1) // 1行目をスキップ
+                    .filter(row => row[jpIndex] && row[enIndex]) // 両方の列にデータがある行のみ
+                    .map(row => ({
+                        japanese: row[jpIndex].trim(),
+                        english: row[enIndex].trim()
+                    }));
+
+                if (learningData.length === 0) {
+                    alert('データが見つかりませんでした。列の設定を確認してください。');
+                    document.getElementById('currentText').textContent = '準備完了';
+                    return;
+                }
+
+                currentIndex = 0;
+                document.getElementById('setupSection').classList.add('hidden');
+                document.getElementById('controlSection').classList.remove('hidden');
+                document.getElementById('currentText').textContent = `${learningData.length}件のデータを読み込みました`;
+                document.getElementById('progress').textContent = `0 / ${learningData.length}`;
+
+            } catch (error) {
+                alert('データの処理中にエラーが発生しました: ' + error.message);
+                document.getElementById('currentText').textContent = '準備完了';
+            }
+        }
+
+        // Google Apps Scriptからデータを読み込む
+        async function loadDataFromAppsScript() {
+            if (!APPS_SCRIPT_URL) {
+                alert('Google Apps ScriptのURLが設定されていません。\n\n設定手順はREADMEファイルを確認してください。');
+                return;
+            }
+
+            const jpCol = document.getElementById('jpColumn').value.toUpperCase();
+            const enCol = document.getElementById('enColumn').value.toUpperCase();
+
+            try {
+                document.getElementById('currentText').innerHTML = '<div class="loading pulse">最新データを読み込み中...</div>';
+
+                const response = await fetch(APPS_SCRIPT_URL);
+
+                if (!response.ok) {
+                    throw new Error('データの取得に失敗しました。Apps ScriptのURLを確認してください。');
+                }
+
+                const csvText = await response.text();
+                processCSVData(csvText, jpCol, enCol);
+
+            } catch (error) {
+                alert('エラー: ' + error.message + '\n\n設定手順はREADMEファイルを確認してください。');
+                document.getElementById('currentText').textContent = '準備完了';
+            }
+        }
+
+        // CSVファイルからデータを読み込む（手動アップロード用）
+        async function loadData() {
+            const fileInput = document.getElementById('csvFile');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('CSVファイルを選択してください');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const jpCol = document.getElementById('jpColumn').value.toUpperCase();
+            const enCol = document.getElementById('enColumn').value.toUpperCase();
+
+            try {
+                document.getElementById('currentText').innerHTML = '<div class="loading pulse">読み込み中...</div>';
+
+                const csvText = await file.text();
+                processCSVData(csvText, jpCol, enCol);
+
+            } catch (error) {
+                alert(error.message);
+                document.getElementById('currentText').textContent = '準備完了';
+            }
+        }
+
+        // 簡易CSVパーサー
+        function parseCSV(text) {
+            const rows = [];
+            const lines = text.split('\n');
+
+            for (let line of lines) {
+                if (!line.trim()) continue;
+
+                const row = [];
+                let cell = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+
+                    if (char === '"') {
+                        if (inQuotes && line[i + 1] === '"') {
+                            cell += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(cell);
+                        cell = '';
+                    } else {
+                        cell += char;
+                    }
+                }
+                row.push(cell);
+                rows.push(row);
+            }
+
+            return rows;
+        }
+
+        // シャッフル機能
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // 学習を開始
+        function startLearning() {
+            if (learningData.length === 0) return;
+
+            // シャッフルモードが有効な場合、データをシャッフル
+            if (document.getElementById('shuffleMode').checked) {
+                learningData = shuffleArray(learningData);
+            }
+
+            isPlaying = true;
+            currentIndex = 0;
+            currentRepeat = 0;
+            document.getElementById('startBtn').classList.add('hidden');
+            document.getElementById('pauseBtn').classList.remove('hidden');
+            document.getElementById('stopBtn').classList.remove('hidden');
+
+            playNext();
+        }
+
+        // 一時停止
+        function pauseLearning() {
+            isPlaying = false;
+            speechSynthesis.cancel();
+            document.getElementById('pauseBtn').classList.add('hidden');
+            document.getElementById('resumeBtn').classList.remove('hidden');
+        }
+
+        // 再開
+        function resumeLearning() {
+            isPlaying = true;
+            document.getElementById('resumeBtn').classList.add('hidden');
+            document.getElementById('pauseBtn').classList.remove('hidden');
+            playNext();
+        }
+
+        // 次の項目を再生
+        function playNext() {
+            if (!isPlaying || currentIndex >= learningData.length) {
+                if (isPlaying) {
+                    // 繰り返し設定を確認
+                    const repeatCount = parseInt(document.getElementById('repeatCount').value);
+                    currentRepeat++;
+
+                    if (currentRepeat < repeatCount) {
+                        currentIndex = 0;
+                        playNext();
+                        return;
+                    }
+
+                    // 全て完了
+                    document.getElementById('currentText').textContent = '学習完了！お疲れ様でした！';
+                    stopLearning();
+                }
+                return;
+            }
+
+            const item = learningData[currentIndex];
+            const waitTime = parseInt(document.getElementById('waitTime').value) * 1000;
+
+            // 進捗を更新
+            document.getElementById('progress').textContent =
+                `${currentIndex + 1} / ${learningData.length} (${currentRepeat + 1}周目)`;
+
+            // 和訳を表示して読み上げ
+            document.getElementById('currentText').textContent = item.japanese;
+            speak(item.japanese, 'ja-JP', () => {
+                // 待機時間後に英文を読み上げ
+                setTimeout(() => {
+                    if (!isPlaying) return;
+
+                    document.getElementById('currentText').textContent = item.english;
+                    speak(item.english, 'en-US', () => {
+                        currentIndex++;
+                        // 次の項目へ（少し間を空ける）
+                        setTimeout(() => {
+                            if (isPlaying) playNext();
+                        }, 1000);
+                    });
+                }, waitTime);
+            });
+        }
+
+        // テキストを読み上げる
+        function speak(text, lang, callback) {
+            // 既存の読み上げをキャンセル
+            speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9; // 読み上げ速度（0.1〜10、1が標準）
+            utterance.pitch = 1.0; // 音の高さ（0〜2、1が標準）
+
+            utterance.onend = callback;
+            utterance.onerror = (event) => {
+                console.error('Speech error:', event);
+                if (callback) callback();
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // 学習を停止
+        function stopLearning() {
+            isPlaying = false;
+            speechSynthesis.cancel();
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('pauseBtn').classList.add('hidden');
+            document.getElementById('resumeBtn').classList.add('hidden');
+            document.getElementById('stopBtn').classList.add('hidden');
+            currentRepeat = 0;
+            currentIndex = 0;
+        }
+
+        // 設定画面に戻る
+        function backToSetup() {
+            stopLearning();
+            document.getElementById('setupSection').classList.remove('hidden');
+            document.getElementById('controlSection').classList.add('hidden');
+            document.getElementById('currentText').textContent = '準備完了';
+            learningData = [];
+        }
+    </script>
+</body>
+</html>
